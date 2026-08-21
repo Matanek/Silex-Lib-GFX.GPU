@@ -1,0 +1,18 @@
+use GFX.GPU
+use GFX.Plugins
+use GFX.Resources
+
+func accepts_gpu_resources(device:@Resources.Device, surface:@Resources.GPUSurface) {}
+
+test "consume GPU directly and through the GFX catalogs" {
+    let plugin = Plugins.GPU(Plugins.GPU.Settings(
+        present_on_start:false,
+        frame_interval_ms:0
+    ))
+    let usage = GPU.BufferUsage.vertex()
+
+    assert(plugin.id() == "GFX.GPU.Plugin")
+    assert(usage.vertices)
+    assert(GPU.texel_block_size(GPU.TextureFormat.rgba8_unorm) == 4)
+    assert(GPU.texture_byte_count(GPU.TextureFormat.rgba8_unorm, 8, 4) == 128)
+}

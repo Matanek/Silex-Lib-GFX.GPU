@@ -1,0 +1,29 @@
+# GFX.GPU
+
+`GFX.GPU` provides direct GPU devices, resources, pipelines, commands,
+compute, offscreen rendering, and presentation to a `GFX.Window`.
+
+```text
+silex install GFX.GPU
+```
+
+```silex
+use GFX.GPU
+
+var device = GPU.Device(GPU.DeviceSettings(debug:true))
+var buffer = device.buffer(GPU.BufferSettings(
+    size:256,
+    usage:GPU.BufferUsage.vertex()
+))
+```
+
+A device does not require a window for compute, transfers, or offscreen
+rendering. Presentation is composed explicitly with `GFX.Window`, while
+`GPU.Plugin` installs the standard Window integration for an Application.
+
+The package contributes `Plugins.GPU`, `Plugins.GPU.Settings`,
+`Resources.Device`, and `Resources.GPUSurface` to GFX's open catalogs. SDL3
+and native handles remain private infrastructure supplied by the GFX core.
+
+See [Docs/README.md](Docs/README.md) for direct usage, HLSL programs, and the
+Application plugin.

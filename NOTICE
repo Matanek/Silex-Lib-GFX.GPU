@@ -1,0 +1,7 @@
+Silex GFX.GPU
+Copyright 2026 Matanek and Silex contributors
+
+This product is licensed under the Apache License, Version 2.0.
+
+GFX.GPU uses the SDL3 provider distributed by its GFX dependency. It does not
+redistribute a separate SDL3 artifact.

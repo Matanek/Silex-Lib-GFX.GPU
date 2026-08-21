@@ -1,0 +1,6 @@
+use GFX.GPU
+
+func main() {
+    let size = GPU.texel_block_size(GPU.TextureFormat.rgba8_unorm)
+    if size != 4 { panic("GFX.GPU could not query SDL3 GPU formats") }
+}
