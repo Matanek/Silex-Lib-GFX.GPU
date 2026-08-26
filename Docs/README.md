@@ -36,10 +36,10 @@ snapshot.
 ## Choosing the application or direct path
 
 Use [TriangleApplication.sx](../Examples/TriangleApplication.sx) when you want
-`Application` to schedule startup, rendering, shutdown, event handling, and
-frame pacing. `Plugins.GPU` installs the default window integration and standard
-resources itself; the example only retains its pipeline and records its draw
-commands.
+`Application` to schedule startup, rendering, shutdown, and event handling.
+`Plugins.GPU` installs the default window integration, synchronized
+presentation, and standard resources itself; the example only retains its
+pipeline and records its draw commands.
 
 Use [TriangleDirect.sx](../Examples/TriangleDirect.sx) when you do not want an
 `Application`. It constructs `Window`, `Input`, `GPU.Device`, `GPU.Surface`,

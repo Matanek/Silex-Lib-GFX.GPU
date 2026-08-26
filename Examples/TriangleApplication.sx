@@ -30,7 +30,6 @@ func render_triangle(device:@GPU.Device, surface:@GPU.Surface, triangle:&Triangl
 func main() {
     Application()
         ..add_resource(Triangle())
-        ..add_plugin(Application.FramePacing(60))
         ..add_plugin(Plugins.GPU())
         ..add_system(Application.Schedule.render, render_triangle)
         ..run()

@@ -28,8 +28,8 @@ and native handles remain private infrastructure supplied by the GFX core.
 ## Examples
 
 - [TriangleApplication.sx](Examples/TriangleApplication.sx) renders a triangle
-  through `Application`, frame pacing, and `Plugins.GPU`; the GPU plugin
-  installs the default window integration itself.
+  through `Application` and `Plugins.GPU`; the GPU plugin installs the default
+  window integration and synchronized presentation itself.
 - [TriangleDirect.sx](Examples/TriangleDirect.sx) owns the window, input loop,
   GPU device, surface, pipeline, and commands directly, without `Application`
   or plugins.
