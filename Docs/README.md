@@ -35,14 +35,14 @@ snapshot.
 
 ## Choosing the application or direct path
 
-Use [TriangleApplication.sx](../Examples/TriangleApplication.sx) when you want
-`Application` to schedule startup, rendering, shutdown, and event handling.
-`Plugins.GPU` installs the default window integration, synchronized
-presentation, and standard resources itself; the example only retains its
-pipeline and records its draw commands.
+Use the [application triangle](https://github.com/Matanek/Silex-Examples/tree/main/Sources/ApplicationGPUTriangle)
+when you want `Application` to schedule startup, rendering, shutdown, and
+event handling. `Plugins.GPU` installs the default window integration,
+synchronized presentation, and standard resources itself; the demonstration
+only retains its pipeline and records its draw commands.
 
-Use [TriangleDirect.sx](../Examples/TriangleDirect.sx) when you do not want an
-`Application`. It constructs `Window`, `Input`, `GPU.Device`, `GPU.Surface`,
-the graphics pipeline, and the event/render loop explicitly. This path uses the
-same public GPU API and the same HLSL shader; plugins are an orchestration
-choice, not a requirement for presentation.
+Use the [direct triangle](https://github.com/Matanek/Silex-Examples/tree/main/Sources/DirectGPUTriangle)
+when you do not want an `Application`. It constructs `Window`, `Input`,
+`GPU.Device`, `GPU.Surface`, the graphics pipeline, and the event/render loop
+explicitly. This path uses the same public GPU API and the same HLSL shader;
+plugins are an orchestration choice, not a requirement for presentation.

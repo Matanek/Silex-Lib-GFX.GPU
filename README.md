@@ -27,18 +27,18 @@ and native handles remain private infrastructure supplied by the GFX core.
 
 ## Examples
 
-- [TriangleApplication.sx](Examples/TriangleApplication.sx) renders a triangle
-  through `Application` and `Plugins.GPU`; the GPU plugin installs the default
-  window integration and synchronized presentation itself.
-- [TriangleDirect.sx](Examples/TriangleDirect.sx) owns the window, input loop,
-  GPU device, surface, pipeline, and commands directly, without `Application`
-  or plugins.
+- The [application triangle](https://github.com/Matanek/Silex-Examples/tree/main/Sources/ApplicationGPUTriangle)
+  renders through `Application` and `Plugins.GPU`; the GPU plugin installs the
+  default window integration and synchronized presentation itself.
+- The [direct triangle](https://github.com/Matanek/Silex-Examples/tree/main/Sources/DirectGPUTriangle)
+  owns the window, input loop, GPU device, surface, pipeline, and commands
+  directly, without `Application` or plugins.
 
-From the Silex workspace root, run either path with:
+From a `Silex-Examples` checkout, run either path with:
 
 ```text
-silex run Packages/GFX.GPU/Examples/TriangleApplication.sx
-silex run Packages/GFX.GPU/Examples/TriangleDirect.sx
+silex run Sources/ApplicationGPUTriangle/Main.sx
+silex run Sources/DirectGPUTriangle/Main.sx
 ```
 
 See [Docs/README.md](Docs/README.md) for direct usage, HLSL programs, and the
