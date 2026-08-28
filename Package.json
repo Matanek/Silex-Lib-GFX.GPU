@@ -1,12 +1,12 @@
 {
   "name": "GFX.GPU",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": {
     "en": "Direct GPU resources, pipelines, commands, compute, rendering, and presentation.",
     "fr": "Ressources GPU directes, pipelines, commandes, calcul, rendu et présentation."
   },
   "authors": ["Matanek"],
-  "requires": { "silex": ">=0.42.0" },
+  "requires": { "silex": ">=0.43.0" },
   "dependencies": {
     "GFX": "^0.37.0"
   },
