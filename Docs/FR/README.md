@@ -43,6 +43,14 @@ let compute = GPU.ComputeProgram.hlsl(source:"...", entry:"compute_main")
 Ce fragment suppose un contexte qui utilise ensuite ces programmes. Silex les
 compile pour la cible ; GFX.GPU n’impose aucun shader de scène.
 
+`ShaderProgram.layout()` fournit un instantané immuable des entry points et du
+nombre de samplers, textures de stockage, buffers de stockage et constant
+buffers réfléchis pour chaque stage. Une API spécialisée peut ainsi valider son
+contrat de ressources avant de créer un pipeline, sans accéder au code compilé
+ni à un handle natif.
+`same_program(other)` permet en complément de mutualiser les pipelines de deux
+valeurs équivalentes sans publier leur payload compilé.
+
 Pour une sortie multisamplée, `CommandBuffer.render_resolved(...)` enregistre
 une passe vers une texture couleur multisamplée puis la résout dans la surface
 active. `Device.reset_command_stats()` ouvre une période de mesure et
