@@ -126,6 +126,7 @@ test "compile and select a portable HLSL graphics program" {
 
 test "inspect the portable graphics program layout without native handles" {
     let program = GPU.ShaderProgram.hlsl(file:"Shaders/Portable.hlsl")
+    let same = GPU.ShaderProgram.hlsl(file:"Shaders/Portable.hlsl")
     let layout = program.layout()
     assert(layout.vertex.entry == "vertex_main")
     assert(layout.vertex.samplers == 0)
@@ -137,6 +138,7 @@ test "inspect the portable graphics program layout without native handles" {
     assert(layout.fragment.storage_textures == 0)
     assert(layout.fragment.storage_buffers == 0)
     assert(layout.fragment.uniform_buffers == 0)
+    assert(program.same_program(same))
 }
 
 test "dispatch compute work and read its result" {

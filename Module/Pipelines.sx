@@ -167,6 +167,28 @@ public struct ShaderProgram {
             )
         )
     }
+
+    // Program equality is based on the selected entry points, reflected
+    // resources, and target-specific compiled payloads. Renderer caches can
+    // reuse a pipeline without exposing any of those payloads.
+    func same_program(other:@ShaderProgram) bool {
+        return self.vertex_msl == other.vertex_msl &&
+            self.fragment_msl == other.fragment_msl &&
+            self.vertex_spirv == other.vertex_spirv &&
+            self.fragment_spirv == other.fragment_spirv &&
+            self.vertex_dxil == other.vertex_dxil &&
+            self.fragment_dxil == other.fragment_dxil &&
+            self.vertex_entry == other.vertex_entry &&
+            self.fragment_entry == other.fragment_entry &&
+            self.vertex_samplers == other.vertex_samplers &&
+            self.vertex_storage_textures == other.vertex_storage_textures &&
+            self.vertex_storage_buffers == other.vertex_storage_buffers &&
+            self.vertex_uniform_buffers == other.vertex_uniform_buffers &&
+            self.fragment_samplers == other.fragment_samplers &&
+            self.fragment_storage_textures == other.fragment_storage_textures &&
+            self.fragment_storage_buffers == other.fragment_storage_buffers &&
+            self.fragment_uniform_buffers == other.fragment_uniform_buffers
+    }
 }
 
 public struct ComputeProgram {

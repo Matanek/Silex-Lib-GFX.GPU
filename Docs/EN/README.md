@@ -48,6 +48,8 @@ the reflected sampler, storage texture, storage buffer, and constant-buffer
 counts for each stage. A specialized API can therefore validate its resource
 contract before pipeline creation without accessing compiled code or a native
 handle.
+`same_program(other)` additionally lets a renderer share pipelines between
+equivalent values without publishing their compiled payload.
 
 For multisampled output, `CommandBuffer.render_resolved(...)` records a pass
 into a multisampled color texture and resolves it into the active surface.
