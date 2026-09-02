@@ -1,3 +1,5 @@
+use GFX.GPU.Commands
+
 public use GFX.GPU.Types.ShaderFormat
 public use GFX.GPU.Types.ShaderStage
 public use GFX.GPU.Types.Primitive
