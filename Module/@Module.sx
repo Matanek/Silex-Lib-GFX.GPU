@@ -63,6 +63,8 @@ public use GFX.GPU.Pipelines.BlendState
 public use GFX.GPU.Pipelines.ColorTargetFormat
 public use GFX.GPU.Pipelines.GraphicsPipelineSettings
 public use GFX.GPU.Pipelines.ComputePipelineSettings
+public use GFX.GPU.Pipelines.ShaderStageLayout
+public use GFX.GPU.Pipelines.GraphicsProgramLayout
 public use GFX.GPU.Pipelines.ShaderProgram
 public use GFX.GPU.Pipelines.ComputeProgram
 public use GFX.GPU.Pipelines.Shader

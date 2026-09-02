@@ -124,6 +124,21 @@ test "compile and select a portable HLSL graphics program" {
     device.wait_until_idle()
 }
 
+test "inspect the portable graphics program layout without native handles" {
+    let program = GPU.ShaderProgram.hlsl(file:"Shaders/Portable.hlsl")
+    let layout = program.layout()
+    assert(layout.vertex.entry == "vertex_main")
+    assert(layout.vertex.samplers == 0)
+    assert(layout.vertex.storage_textures == 0)
+    assert(layout.vertex.storage_buffers == 0)
+    assert(layout.vertex.uniform_buffers == 0)
+    assert(layout.fragment.entry == "fragment_main")
+    assert(layout.fragment.samplers == 0)
+    assert(layout.fragment.storage_textures == 0)
+    assert(layout.fragment.storage_buffers == 0)
+    assert(layout.fragment.uniform_buffers == 0)
+}
+
 test "dispatch compute work and read its result" {
     var device = GPU.Device(GPU.DeviceSettings(debug:true))
     let compute_source = "#include <metal_stdlib>\nusing namespace metal; kernel void compute_main(device uchar *values [[buffer(0)]], uint index [[thread_position_in_grid]]) { values[index] = values[index] + 1; }"

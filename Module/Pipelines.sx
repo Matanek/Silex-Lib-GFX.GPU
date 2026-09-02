@@ -106,6 +106,22 @@ public struct ComputePipelineSettings {
     var name:str? = null
 }
 
+// Immutable compiler reflection for one graphics stage. This exposes only the
+// portable binding contract needed to validate a program before pipeline
+// creation; compiled code and native handles remain private.
+public struct ShaderStageLayout {
+    let entry:str
+    let samplers:int
+    let storage_textures:int
+    let storage_buffers:int
+    let uniform_buffers:int
+}
+
+public struct GraphicsProgramLayout {
+    let vertex:ShaderStageLayout
+    let fragment:ShaderStageLayout
+}
+
 public struct ShaderProgram {
     module let vertex_msl:str?
     module let fragment_msl:str?
@@ -131,6 +147,25 @@ public struct ShaderProgram {
         fragment:str = "fragment_main"
     ) ShaderProgram {
         panic("GPU.ShaderProgram.hlsl must be compiled by Silex")
+    }
+
+    func layout() GraphicsProgramLayout {
+        return GraphicsProgramLayout(
+            vertex:ShaderStageLayout(
+                entry:self.vertex_entry,
+                samplers:self.vertex_samplers,
+                storage_textures:self.vertex_storage_textures,
+                storage_buffers:self.vertex_storage_buffers,
+                uniform_buffers:self.vertex_uniform_buffers
+            ),
+            fragment:ShaderStageLayout(
+                entry:self.fragment_entry,
+                samplers:self.fragment_samplers,
+                storage_textures:self.fragment_storage_textures,
+                storage_buffers:self.fragment_storage_buffers,
+                uniform_buffers:self.fragment_uniform_buffers
+            )
+        )
     }
 }
 
