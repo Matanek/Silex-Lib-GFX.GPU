@@ -18,6 +18,20 @@
         }
       }
     },
+    "macos-x64": {
+      "providers": {
+        "SDL3": {
+          "requires": ["GFX.SDL3"]
+        }
+      }
+    },
+    "linux-arm64": {
+      "providers": {
+        "SDL3": {
+          "requires": ["GFX.SDL3"]
+        }
+      }
+    },
     "linux-x64": {
       "providers": {
         "SDL3": {

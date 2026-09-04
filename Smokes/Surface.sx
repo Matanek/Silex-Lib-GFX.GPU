@@ -1,0 +1,33 @@
+use GFX.Application
+use GFX.Color
+use GFX.GPU
+use GFX.Window
+
+func run_headless_cycle(application:Application) int {
+    var window = Window(Window.Settings(
+        title:"GFX portability smoke",
+        width:64,
+        height:64,
+        hidden:true
+    ))
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var surface = device.present(window)
+    surface.configure(GPU.SurfaceSettings(
+        present_mode:surface.present_mode(),
+        color_space:surface.color_space()
+    ))
+    surface.wait_until_ready()
+    var commands = device.commands()
+    commands.clear(surface, Color.indigo_900())
+    commands.submit()
+    device.wait_until_idle()
+    return 0
+}
+
+func main() {
+    var application = Application()
+    application.with_runner(run_headless_cycle)
+    if application.run() != 0 {
+        panic("GFX headless application cycle failed")
+    }
+}

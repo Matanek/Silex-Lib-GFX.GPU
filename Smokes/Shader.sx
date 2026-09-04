@@ -1,0 +1,15 @@
+use GFX.GPU
+
+func main() {
+    let program = GPU.ShaderProgram.hlsl(
+        file:"../Tests/Shaders/Portable.hlsl"
+    )
+    let layout = program.layout()
+    if layout.vertex.entry != "vertex_main" {
+        panic("GFX.GPU selected an invalid vertex shader entry")
+    }
+    if layout.fragment.entry != "fragment_main" {
+        panic("GFX.GPU selected an invalid fragment shader entry")
+    }
+}
+
