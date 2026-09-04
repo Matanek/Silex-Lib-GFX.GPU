@@ -12,4 +12,3 @@ func main() {
         panic("GFX.GPU selected an invalid fragment shader entry")
     }
 }
-
