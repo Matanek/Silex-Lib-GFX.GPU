@@ -1,0 +1,8 @@
+use GFX.GPU
+
+func main() {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var upload = device.upload_buffer(4)
+    var values:int32[] = [1 as int32]
+    upload.write_int32s(@values[0:values.count()], element_offset:-1)
+}

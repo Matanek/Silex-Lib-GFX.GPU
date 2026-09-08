@@ -12,7 +12,7 @@ remain private.
 silex install GFX.GPU
 ```
 
-GFX.GPU requires Silex 0.39.0 or newer.
+GFX.GPU requires Silex 0.43.0 or newer.
 
 ## Create a device and resource
 
@@ -30,6 +30,25 @@ func main() {
 
 A device does not need a window for compute, transfers, or offscreen rendering.
 Presentation composes explicitly with `GFX.Window`.
+
+## Transfer typed numeric values
+
+An upload `GPU.TransferBuffer` can write Silex slices directly with
+`write_floats`, `write_int8s`, `write_uint8s`, `write_int16s`,
+`write_uint16s`, `write_int32s`, `write_uint32s`, `write_int64s`, and
+`write_uint64s`. Download buffers expose the corresponding `read_*` methods.
+Offsets and counts are expressed in elements of the named type, never bytes:
+
+```sx
+var values:int32[] = [101 as int32, 2023 as int32]
+var upload = device.upload_buffer(values.count() * 4)
+upload.write_int32s(@values[0:values.count()])
+```
+
+These methods preserve the values' bit representation and do not construct an
+intermediate byte array. Writes require an upload buffer and reads require a
+download buffer. For reads, `count:-1` means “through the last complete
+element”; any trailing bytes shorter than one element are ignored.
 
 ## Provide shader programs
 

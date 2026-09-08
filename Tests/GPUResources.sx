@@ -1,5 +1,71 @@
+use Interop.C
 use GFX.Color
 use GFX.GPU
+
+func copy_transfer_values(
+    device:@GPU.Device,
+    upload:@GPU.TransferBuffer,
+    download:@GPU.TransferBuffer,
+    byte_count:int,
+) {
+    var buffer = device.buffer(GPU.BufferSettings(
+        size:byte_count,
+        usage:GPU.BufferUsage.vertex()
+    ))
+    var commands = device.commands()
+    var transfer = commands.copy()
+    transfer.upload(upload, buffer, byte_count)
+    transfer.download(buffer, download, byte_count)
+    transfer.finish()
+    var completed = commands.submit_and_track()
+    completed.wait()
+}
+
+func float_from_bits(bits:uint32) float {
+    var storage = bits
+    let address = C.address_bits(C.mutable_pointer(storage))
+    return C.load<float>(address, 0 as uint)
+}
+
+func float_bits(value:float) uint32 {
+    var storage:uint32 = 0
+    let address = C.address_bits(C.mutable_pointer(storage))
+    let stored = C.store<float>(address, 0 as uint, value)
+    return C.load<uint32>(address, 0 as uint)
+}
+
+func int8_from_bits(bits:uint8) int8 {
+    var storage:uint32 = bits as uint32
+    let address = C.address_bits(C.mutable_pointer(storage))
+    return C.load<int8>(address, 0 as uint)
+}
+
+func int16_from_bits(bits:uint16) int16 {
+    var storage:uint32 = bits as uint32
+    let address = C.address_bits(C.mutable_pointer(storage))
+    return C.load<int16>(address, 0 as uint)
+}
+
+func int32_from_bits(bits:uint32) int32 {
+    var storage = bits
+    let address = C.address_bits(C.mutable_pointer(storage))
+    return C.load<int32>(address, 0 as uint)
+}
+
+func int64_from_bits(bits:uint64) int64 {
+    var storage:uint = bits as uint
+    let address = C.address_bits(C.mutable_pointer(storage))
+    return C.load<int64>(address, 0 as uint)
+}
+
+func assert_values<T>(actual:T[], expected:T[]) {
+    assert(actual.count() == expected.count())
+    var index = 0
+    while index < expected.count() {
+        assert(actual[index] == expected[index])
+        index++
+    }
+}
 
 test "move bytes through a GPU buffer" {
     var device = GPU.Device(GPU.DeviceSettings(debug:true))
@@ -35,6 +101,130 @@ test "move bytes through a GPU buffer" {
         assert(result[index] == source[index])
         index++
     }
+}
+
+test "roundtrip float32 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+
+    var floats:float[] = [
+        float_from_bits(0x8000_0000),
+        float_from_bits(0x7f80_0000),
+        float_from_bits(0xff80_0000),
+        float_from_bits(0x7fc1_2345),
+    ]
+    var float_upload = device.upload_buffer(floats.count() * 4)
+    float_upload.write_floats(@floats[0:floats.count()], cycle:true)
+    var float_download = device.download_buffer(floats.count() * 4)
+    copy_transfer_values(device, float_upload, float_download, floats.count() * 4)
+    let restored_floats = float_download.read_floats()
+    var float_index = 0
+    while float_index < floats.count() {
+        assert(float_bits(restored_floats[float_index]) == float_bits(floats[float_index]))
+        float_index++
+    }
+}
+
+test "roundtrip int8 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var int8s:int8[] = [int8_from_bits(0x80), -1 as int8, 0 as int8, 127 as int8]
+    var int8_upload = device.upload_buffer(int8s.count())
+    int8_upload.write_int8s(@int8s[0:int8s.count()])
+    var int8_download = device.download_buffer(int8s.count())
+    copy_transfer_values(device, int8_upload, int8_download, int8s.count())
+    let restored_int8s = int8_download.read_int8s()
+    assert_values<int8>(restored_int8s, int8s)
+}
+
+test "roundtrip uint8 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var uint8s:uint8[] = [0 as uint8, 1 as uint8, 42 as uint8, 255 as uint8]
+    var uint8_upload = device.upload_buffer(uint8s.count())
+    uint8_upload.write_uint8s(@uint8s[0:uint8s.count()])
+    var uint8_download = device.download_buffer(uint8s.count())
+    copy_transfer_values(device, uint8_upload, uint8_download, uint8s.count())
+    let restored_uint8s = uint8_download.read_uint8s()
+    assert_values<uint8>(restored_uint8s, uint8s)
+}
+
+test "roundtrip int16 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var int16s:int16[] = [int16_from_bits(0x8000), -1 as int16, 0 as int16, 32767 as int16]
+    var int16_upload = device.upload_buffer(int16s.count() * 2)
+    int16_upload.write_int16s(@int16s[0:int16s.count()])
+    var int16_download = device.download_buffer(int16s.count() * 2)
+    copy_transfer_values(device, int16_upload, int16_download, int16s.count() * 2)
+    let restored_int16s = int16_download.read_int16s()
+    assert_values<int16>(restored_int16s, int16s)
+}
+
+test "roundtrip uint16 values with element offsets" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var uint16s:uint16[] = [0 as uint16, 1 as uint16, 65535 as uint16]
+    var uint16_upload = device.upload_buffer(8)
+    uint16_upload.write_uint16s(@uint16s[0:uint16s.count()], element_offset:1)
+    var uint16_download = device.download_buffer(8)
+    copy_transfer_values(device, uint16_upload, uint16_download, 8)
+    let restored_uint16s = uint16_download.read_uint16s(element_offset:1, count:uint16s.count())
+    assert_values<uint16>(restored_uint16s, uint16s)
+}
+
+test "roundtrip int32 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var int32s:int32[] = [int32_from_bits(0x8000_0000), -1 as int32, 0 as int32, 2147483647 as int32]
+    var int32_upload = device.upload_buffer(int32s.count() * 4)
+    int32_upload.write_int32s(@int32s[0:int32s.count()])
+    var int32_download = device.download_buffer(int32s.count() * 4)
+    copy_transfer_values(device, int32_upload, int32_download, int32s.count() * 4)
+    let restored_int32s = int32_download.read_int32s()
+    assert_values<int32>(restored_int32s, int32s)
+}
+
+test "roundtrip uint32 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var uint32s:uint32[] = [0 as uint32, 1 as uint32, 0xffff_ffff]
+    var uint32_upload = device.upload_buffer(uint32s.count() * 4)
+    uint32_upload.write_uint32s(@uint32s[0:uint32s.count()])
+    var uint32_download = device.download_buffer(uint32s.count() * 4)
+    copy_transfer_values(device, uint32_upload, uint32_download, uint32s.count() * 4)
+    let restored_uint32s = uint32_download.read_uint32s()
+    assert_values<uint32>(restored_uint32s, uint32s)
+}
+
+test "roundtrip int64 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var int64s:int64[] = [
+        int64_from_bits(0x8000_0000_0000_0000),
+        -1 as int64,
+        0 as int64,
+        9_223_372_036_854_775_807 as int64,
+    ]
+    var int64_upload = device.upload_buffer(int64s.count() * 8)
+    int64_upload.write_int64s(@int64s[0:int64s.count()])
+    var int64_download = device.download_buffer(int64s.count() * 8)
+    copy_transfer_values(device, int64_upload, int64_download, int64s.count() * 8)
+    let restored_int64s = int64_download.read_int64s()
+    assert_values<int64>(restored_int64s, int64s)
+}
+
+test "roundtrip uint64 values through a GPU buffer" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var uint64s:uint64[] = [0 as uint64, 1 as uint64, 0xffff_ffff_ffff_ffff]
+    var uint64_upload = device.upload_buffer(uint64s.count() * 8)
+    uint64_upload.write_uint64s(@uint64s[0:uint64s.count()])
+    var uint64_download = device.download_buffer(uint64s.count() * 8)
+    copy_transfer_values(device, uint64_upload, uint64_download, uint64s.count() * 8)
+    let restored_uint64s = uint64_download.read_uint64s()
+    assert_values<uint64>(restored_uint64s, uint64s)
+}
+
+test "accept empty typed writes and ignore incomplete trailing elements" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var empty:int32[] = []
+    var remainder_upload = device.upload_buffer(5)
+    remainder_upload.write_int32s(@empty[0:0], element_offset:1)
+    var remainder_download = device.download_buffer(5)
+    let ignored_remainder = remainder_download.read_int32s(element_offset:1)
+    assert(ignored_remainder.count() == 0)
 }
 
 test "render and blit between offscreen textures" {

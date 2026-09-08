@@ -1,0 +1,11 @@
+use GFX.GPU
+
+func main() {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var upload = device.upload_buffer(4)
+    var values:int64[] = []
+    upload.write_int64s(
+        @values[0:0],
+        element_offset:9_223_372_036_854_775_807,
+    )
+}

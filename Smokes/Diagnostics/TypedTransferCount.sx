@@ -1,0 +1,7 @@
+use GFX.GPU
+
+func main() {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var download = device.download_buffer(4)
+    let values = download.read_int32s(count:-2)
+}

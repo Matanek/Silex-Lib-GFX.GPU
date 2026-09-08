@@ -1,0 +1,37 @@
+use GFX.GPU
+
+func main() {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var upload = device.upload_buffer(8)
+    var download = device.download_buffer(8)
+
+    var floats:float[] = []
+    var int8s:int8[] = []
+    var uint8s:uint8[] = []
+    var int16s:int16[] = []
+    var uint16s:uint16[] = []
+    var int32s:int32[] = []
+    var uint32s:uint32[] = []
+    var int64s:int64[] = []
+    var uint64s:uint64[] = []
+
+    upload.write_floats(@floats[0:0])
+    upload.write_int8s(@int8s[0:0])
+    upload.write_uint8s(@uint8s[0:0])
+    upload.write_int16s(@int16s[0:0])
+    upload.write_uint16s(@uint16s[0:0])
+    upload.write_int32s(@int32s[0:0])
+    upload.write_uint32s(@uint32s[0:0])
+    upload.write_int64s(@int64s[0:0])
+    upload.write_uint64s(@uint64s[0:0])
+
+    assert(download.read_floats(count:0).count() == 0)
+    assert(download.read_int8s(count:0).count() == 0)
+    assert(download.read_uint8s(count:0).count() == 0)
+    assert(download.read_int16s(count:0).count() == 0)
+    assert(download.read_uint16s(count:0).count() == 0)
+    assert(download.read_int32s(count:0).count() == 0)
+    assert(download.read_uint32s(count:0).count() == 0)
+    assert(download.read_int64s(count:0).count() == 0)
+    assert(download.read_uint64s(count:0).count() == 0)
+}

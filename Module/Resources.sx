@@ -50,6 +50,11 @@ public struct TransferBufferSettings {
     var name:str? = null
 }
 
+local struct ElementRange {
+    let byte_offset:int
+    let element_count:int
+}
+
 public class Buffer {
     private let device_handle:uint
     private let handle:uint
@@ -270,6 +275,34 @@ public class TransferBuffer {
         sdl_unmap_gpu_transfer_buffer(C.pointer_bits(self.device_handle), C.pointer_bits(self.handle))
     }
 
+    func write_floats(values:@float[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<float>(values, 4, element_offset, cycle)
+    }
+    func write_int8s(values:@int8[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<int8>(values, 1, element_offset, cycle)
+    }
+    func write_uint8s(values:@uint8[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<uint8>(values, 1, element_offset, cycle)
+    }
+    func write_int16s(values:@int16[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<int16>(values, 2, element_offset, cycle)
+    }
+    func write_uint16s(values:@uint16[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<uint16>(values, 2, element_offset, cycle)
+    }
+    func write_int32s(values:@int32[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<int32>(values, 4, element_offset, cycle)
+    }
+    func write_uint32s(values:@uint32[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<uint32>(values, 4, element_offset, cycle)
+    }
+    func write_int64s(values:@int64[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<int64>(values, 8, element_offset, cycle)
+    }
+    func write_uint64s(values:@uint64[..], element_offset:int = 0, cycle:bool = false) {
+        self.write_values<uint64>(values, 8, element_offset, cycle)
+    }
+
     func write_packed(bytes:str, count:int, offset:int = 0, cycle:bool = false) {
         if required_direction(self.current_direction) != Types.TransferDirection.upload { panic("GFX.GPU can only write an upload transfer buffer") }
         validate_range(self.byte_count, offset, count)
@@ -305,6 +338,84 @@ public class TransferBuffer {
         return result
     }
 
+    func read_floats(element_offset:int = 0, count:int = -1) float[] {
+        return self.read_values<float>(4, element_offset, count)
+    }
+    func read_int8s(element_offset:int = 0, count:int = -1) int8[] {
+        return self.read_values<int8>(1, element_offset, count)
+    }
+    func read_uint8s(element_offset:int = 0, count:int = -1) uint8[] {
+        return self.read_values<uint8>(1, element_offset, count)
+    }
+    func read_int16s(element_offset:int = 0, count:int = -1) int16[] {
+        return self.read_values<int16>(2, element_offset, count)
+    }
+    func read_uint16s(element_offset:int = 0, count:int = -1) uint16[] {
+        return self.read_values<uint16>(2, element_offset, count)
+    }
+    func read_int32s(element_offset:int = 0, count:int = -1) int32[] {
+        return self.read_values<int32>(4, element_offset, count)
+    }
+    func read_uint32s(element_offset:int = 0, count:int = -1) uint32[] {
+        return self.read_values<uint32>(4, element_offset, count)
+    }
+    func read_int64s(element_offset:int = 0, count:int = -1) int64[] {
+        return self.read_values<int64>(8, element_offset, count)
+    }
+    func read_uint64s(element_offset:int = 0, count:int = -1) uint64[] {
+        return self.read_values<uint64>(8, element_offset, count)
+    }
+
+    private func write_values<T>(values:@T[..], width:int, element_offset:int, cycle:bool) {
+        if required_direction(self.current_direction) != Types.TransferDirection.upload {
+            panic("GFX.GPU can only write an upload transfer buffer")
+        }
+        let transfer_range = validated_element_range(self.byte_count, element_offset, values.count(), width)
+        if transfer_range.element_count == 0 { return }
+        let address = C.address_bits(sdl_map_gpu_transfer_buffer(
+            C.pointer_bits(self.device_handle), C.pointer_bits(self.handle), Types.native_bool(cycle)
+        ))
+        if address == 0 as uint { panic("GFX.GPU could not map an upload transfer buffer: " + gpu_error()) }
+        if !mapped_address_is_aligned(address, transfer_range.byte_offset, width) {
+            sdl_unmap_gpu_transfer_buffer(C.pointer_bits(self.device_handle), C.pointer_bits(self.handle))
+            panic("GFX.GPU mapped transfer buffer is not aligned for typed access")
+        }
+        var index = 0
+        while index < transfer_range.element_count {
+            let stored = C.store<T>(
+                address,
+                (transfer_range.byte_offset + index * width) as uint,
+                values[index]
+            )
+            index++
+        }
+        sdl_unmap_gpu_transfer_buffer(C.pointer_bits(self.device_handle), C.pointer_bits(self.handle))
+    }
+
+    private func read_values<T>(width:int, element_offset:int, count:int) T[] {
+        if required_direction(self.current_direction) != Types.TransferDirection.download {
+            panic("GFX.GPU can only read a download transfer buffer")
+        }
+        let transfer_range = resolved_element_range(self.byte_count, element_offset, count, width)
+        var result:T[] = []
+        if transfer_range.element_count == 0 { return result }
+        let address = C.address_bits(sdl_map_gpu_transfer_buffer(
+            C.pointer_bits(self.device_handle), C.pointer_bits(self.handle), 0
+        ))
+        if address == 0 as uint { panic("GFX.GPU could not map a download transfer buffer: " + gpu_error()) }
+        if !mapped_address_is_aligned(address, transfer_range.byte_offset, width) {
+            sdl_unmap_gpu_transfer_buffer(C.pointer_bits(self.device_handle), C.pointer_bits(self.handle))
+            panic("GFX.GPU mapped transfer buffer is not aligned for typed access")
+        }
+        var index = 0
+        while index < transfer_range.element_count {
+            result.append(C.load<T>(address, (transfer_range.byte_offset + index * width) as uint))
+            index++
+        }
+        sdl_unmap_gpu_transfer_buffer(C.pointer_bits(self.device_handle), C.pointer_bits(self.handle))
+        return result
+    }
+
     module func native_handle() uint { return self.handle }
     module func owner_handle() uint { return self.device_handle }
 }
@@ -332,6 +443,28 @@ local func validate_texture(settings:TextureSettings) {
 
 local func validate_range(capacity:int, offset:int, count:int) {
     if offset < 0 || count < 0 || offset + count > capacity { panic("GFX.GPU transfer range is outside its buffer") }
+}
+
+local func validated_element_range(capacity:int, offset:int, count:int, width:int) ElementRange {
+    if offset < 0 || count < 0 { panic("GFX.GPU typed transfer range is outside its buffer") }
+    let capacity_elements = capacity / width
+    if offset > capacity_elements || count > capacity_elements - offset {
+        panic("GFX.GPU typed transfer range is outside its buffer")
+    }
+    return ElementRange(byte_offset:offset * width, element_count:count)
+}
+
+local func resolved_element_range(capacity:int, offset:int, count:int, width:int) ElementRange {
+    if count < -1 { panic("GFX.GPU typed transfer count must be -1 or non-negative") }
+    if offset < 0 { panic("GFX.GPU typed transfer range is outside its buffer") }
+    let capacity_elements = capacity / width
+    if offset > capacity_elements { panic("GFX.GPU typed transfer range is outside its buffer") }
+    if count == -1 { return validated_element_range(capacity, offset, capacity_elements - offset, width) }
+    return validated_element_range(capacity, offset, count, width)
+}
+
+local func mapped_address_is_aligned(address:uint, byte_offset:int, width:int) bool {
+    return (address + byte_offset as uint) % width as uint == 0 as uint
 }
 
 local func texture_type(value:Types.TextureType?) Types.TextureType {

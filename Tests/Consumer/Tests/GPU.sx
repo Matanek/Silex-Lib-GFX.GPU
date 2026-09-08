@@ -16,3 +16,29 @@ test "consume GPU directly and through the GFX catalogs" {
     assert(GPU.texel_block_size(GPU.TextureFormat.rgba8_unorm) == 4)
     assert(GPU.texture_byte_count(GPU.TextureFormat.rgba8_unorm, 8, 4) == 128)
 }
+
+test "transfer typed numeric values through the public package boundary" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var source:int32[] = [-2147483647 as int32, 0 as int32, 2147483647 as int32]
+    var upload = device.upload_buffer(source.count() * 4)
+    upload.write_int32s(@source[0:source.count()])
+    var storage = device.buffer(GPU.BufferSettings(
+        size:source.count() * 4,
+        usage:GPU.BufferUsage.vertex()
+    ))
+    var download = device.download_buffer(source.count() * 4)
+    var commands = device.commands()
+    var transfer = commands.copy()
+    transfer.upload(upload, storage, source.count() * 4)
+    transfer.download(storage, download, source.count() * 4)
+    transfer.finish()
+    var completed = commands.submit_and_track()
+    completed.wait()
+    let restored = download.read_int32s()
+    assert(restored.count() == source.count())
+    var index = 0
+    while index < source.count() {
+        assert(restored[index] == source[index])
+        index++
+    }
+}
