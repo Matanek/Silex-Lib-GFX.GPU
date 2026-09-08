@@ -215,7 +215,7 @@ public struct ComputeProgram {
     }
 }
 
-public class Shader {
+public noncopyable class Shader {
     private let device_handle:uint
     private let handle:uint
     private var device_owner:Device? = null
@@ -264,7 +264,7 @@ public class Shader {
 
 // Public opaque graphics pipeline. Applications obtain it from Device and
 // pass it to render passes; GPU owns its construction and native handles.
-public class GraphicsPipeline {
+public noncopyable class GraphicsPipeline {
     private let device_handle:uint
     private let handle:uint
     private var device_owner:Device? = null
@@ -339,7 +339,7 @@ public class GraphicsPipeline {
 
 // Public opaque compute pipeline. Applications obtain it from Device and pass
 // it to compute passes; GPU owns its construction and native handles.
-public class ComputePipeline {
+public noncopyable class ComputePipeline {
     private let device_handle:uint
     private let handle:uint
     private var device_owner:Device? = null

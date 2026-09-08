@@ -85,7 +85,7 @@ public struct BlitRegion {
     var height:int = 1
 }
 
-public class Fence {
+public noncopyable class Fence {
     private let device_handle:uint
     private var handle:uint
     private var device_owner:Device? = null
@@ -123,7 +123,7 @@ public class Fence {
     module func owner_handle() uint { return self.device_handle }
 }
 
-public class CommandBuffer {
+public noncopyable class CommandBuffer {
     private let device_handle:uint
     private var device_owner:Device? = null
     private var handle:uint
@@ -322,12 +322,16 @@ public class CommandBuffer {
         ))
         if handle == 0 as uint { panic("GFX.GPU could not begin a compute pass: " + gpu_error()) }
         self.pass_active = true
+        self.record_compute_pass()
         return ComputePass(self, handle)
     }
 
     func vertex_uniform(slot:int, bytes:@uint8[..]) { self.uniform(0, slot, bytes) }
     func fragment_uniform(slot:int, bytes:@uint8[..]) { self.uniform(1, slot, bytes) }
     func compute_uniform(slot:int, bytes:@uint8[..]) { self.uniform(2, slot, bytes) }
+    func compute_uniform(slot:int, bytes:float) {
+        self.compute_scalar_uniform<float>(slot, bytes)
+    }
 
     func label(value:str) {
         self.require_recording("insert a debug label")
@@ -415,6 +419,9 @@ public class CommandBuffer {
     // Rendering.Stats without depending on the built-in Scene3D package.
     public func record_shadows() { self.records_shadows = true }
     module func record_render_pass() { if var device = self.device_owner { device.record_render_pass() } }
+    module func record_upload() { if var device = self.device_owner { device.record_upload() } }
+    module func record_download() { if var device = self.device_owner { device.record_download() } }
+    module func record_compute_pass() { if var device = self.device_owner { device.record_compute_pass() } }
     module func record_pipeline_binding(primitive:Types.Primitive) {
         if var device = self.device_owner { device.record_pipeline_binding(primitive) }
     }
@@ -446,6 +453,17 @@ public class CommandBuffer {
         sdl_push_gpu_compute_uniform_data(C.pointer_bits(self.handle), slot as uint32, C.pointer(compact), bytes.count() as uint32)
     }
 
+    private func compute_scalar_uniform<T>(slot:int, value:T) {
+        self.require_recording("push uniform data")
+        if slot < 0 || slot >= 4 { panic("GFX.GPU uniform slot must be between 0 and 3") }
+        var stored = value
+        sdl_push_gpu_compute_uniform_data(
+            C.pointer_bits(self.handle), slot as uint32,
+            C.pointer_bits(C.address_bits(C.mutable_pointer(stored))), 4
+        )
+        self.record_uniform(4)
+    }
+
     private func require_owner(owner:uint) { if owner != self.device_handle { panic("GFX.GPU resource belongs to another device") } }
     private func release_scratch() {
         if self.scratch_address == 0 as uint { return }
@@ -456,7 +474,7 @@ public class CommandBuffer {
     private func require_available(action:str) { self.require_recording(action); if self.pass_active { panic("GFX.GPU cannot " + action + " while a pass is active") } }
 }
 
-public class RenderPass {
+public noncopyable class RenderPass {
     private var commands:CommandBuffer? = null
     private var handle:uint
     private let device_handle:uint
@@ -734,7 +752,7 @@ public class RenderPass {
     }
 }
 
-public class CopyPass {
+public noncopyable class CopyPass {
     private var commands:CommandBuffer? = null
     private var handle:uint
     private let device_handle:uint
@@ -750,6 +768,7 @@ public class CopyPass {
         encode_transfer_location(source, layout, C.address_bits(C.mutable_pointer(source_info)))
         encode_buffer_region(destination, offset, extent, C.address_bits(C.mutable_pointer(destination_info)))
         sdl_upload_to_gpu_buffer(C.pointer_bits(self.handle), C.pointer_bits(C.address_bits(C.mutable_pointer(source_info))), C.pointer_bits(C.address_bits(C.mutable_pointer(destination_info))), Types.native_bool(cycle))
+        if var commands = self.commands { commands.record_upload() }
     }
     func download(source:@Buffer, destination:@TransferBuffer, extent:int, layout:int = 0, offset:int = 0) {
         self.require_owner(source.owner_handle()); self.require_owner(destination.owner_handle())
@@ -760,6 +779,7 @@ public class CopyPass {
         encode_buffer_region(source, layout, extent, C.address_bits(C.mutable_pointer(source_info)))
         encode_transfer_location(destination, offset, C.address_bits(C.mutable_pointer(destination_info)))
         sdl_download_from_gpu_buffer(C.pointer_bits(self.handle), C.pointer_bits(C.address_bits(C.mutable_pointer(source_info))), C.pointer_bits(C.address_bits(C.mutable_pointer(destination_info))))
+        if var commands = self.commands { commands.record_download() }
     }
     func copy(source:@Buffer, destination:@Buffer, extent:int, layout:int = 0, offset:int = 0, cycle:bool = true) {
         self.require_owner(source.owner_handle()); self.require_owner(destination.owner_handle())
@@ -817,7 +837,7 @@ public class CopyPass {
     }
 }
 
-public class ComputePass {
+public noncopyable class ComputePass {
     private var commands:CommandBuffer? = null
     private var handle:uint
     private let device_handle:uint

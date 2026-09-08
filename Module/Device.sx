@@ -66,6 +66,9 @@ public struct SurfaceSettings {
 }
 
 public struct CommandStatistics {
+    let uploads:int
+    let downloads:int
+    let compute_passes:int
     let render_passes:int
     let draw_calls:int
     let pipeline_bindings:int
@@ -81,6 +84,9 @@ public struct CommandStatistics {
 }
 
 package struct CommandStats {
+    var uploads:int
+    var downloads:int
+    var compute_passes:int
     var render_passes:int
     var draw_calls:int
     var pipeline_bindings:int
@@ -95,6 +101,9 @@ package struct CommandStats {
     var shadow_instances:int
 
     init() {
+        self.uploads = 0
+        self.downloads = 0
+        self.compute_passes = 0
         self.render_passes = 0
         self.draw_calls = 0
         self.pipeline_bindings = 0
@@ -111,7 +120,7 @@ package struct CommandStats {
 
 }
 
-public class Device {
+public noncopyable class Device {
     private let handle:uint
     private var current_command_stats:CommandStats
     private var current_primitive:Types.Primitive
@@ -220,6 +229,9 @@ public class Device {
     }
     func command_stats() CommandStatistics {
         return CommandStatistics(
+            uploads:self.current_command_stats.uploads,
+            downloads:self.current_command_stats.downloads,
+            compute_passes:self.current_command_stats.compute_passes,
             render_passes:self.current_command_stats.render_passes,
             draw_calls:self.current_command_stats.draw_calls,
             pipeline_bindings:self.current_command_stats.pipeline_bindings,
@@ -234,6 +246,9 @@ public class Device {
             shadow_instances:self.current_command_stats.shadow_instances
         )
     }
+    module func record_upload() { self.current_command_stats.uploads++ }
+    module func record_download() { self.current_command_stats.downloads++ }
+    module func record_compute_pass() { self.current_command_stats.compute_passes++ }
     module func record_render_pass() { self.current_command_stats.render_passes++ }
     module func record_pipeline_binding(primitive:Types.Primitive) {
         self.current_command_stats.pipeline_bindings++
@@ -269,7 +284,7 @@ public class Device {
     module func native_handle() uint { return self.handle }
 }
 
-public class Surface {
+public noncopyable class Surface {
     private let device_handle:uint
     private let window_handle:uint
     private var device_owner:Device? = null

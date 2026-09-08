@@ -74,6 +74,15 @@ For multisampled output, `CommandBuffer.render_resolved(...)` records a pass
 into a multisampled color texture and resolves it into the active surface.
 `Device.reset_command_stats()` opens a measurement period and
 `Device.command_stats()` returns an immutable `GPU.CommandStatistics` snapshot.
+The snapshot includes uploads, downloads, compute passes, and uniform bytes so
+a specialized layer can prove that a chain stays on the GPU until its explicit
+readback.
+
+`CommandBuffer.compute_uniform(slot, value)` directly accepts a `float32`
+scalar in addition to the general byte view. Devices, resources, pipelines,
+commands, passes, and fences are `noncopyable` classes: ordinary assignment
+shares their identity, while `copy` is rejected so a native handle and its
+cleanup are never duplicated.
 
 ## Choose Application or direct integration
 

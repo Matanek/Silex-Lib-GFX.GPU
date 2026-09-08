@@ -55,7 +55,7 @@ local struct ElementRange {
     let element_count:int
 }
 
-public class Buffer {
+public noncopyable class Buffer {
     private let device_handle:uint
     private let handle:uint
     private var device_owner:Device? = null
@@ -99,7 +99,7 @@ public class Buffer {
     module func owner_handle() uint { return self.device_handle }
 }
 
-public class Texture {
+public noncopyable class Texture {
     private let device_handle:uint
     private let handle:uint
     private var device_owner:Device? = null
@@ -183,7 +183,7 @@ public func texture_format(format:Types.PixelFormat) Types.TextureFormat {
 
 // Public opaque sampler. Applications obtain it from Device and pass it to GPU
 // commands; GPU owns its construction and native handles.
-public class Sampler {
+public noncopyable class Sampler {
     private let device_handle:uint
     private let handle:uint
     private var device_owner:Device? = null
@@ -225,7 +225,7 @@ public class Sampler {
     module func owner_handle() uint { return self.device_handle }
 }
 
-public class TransferBuffer {
+public noncopyable class TransferBuffer {
     private let device_handle:uint
     private let handle:uint
     private var device_owner:Device? = null

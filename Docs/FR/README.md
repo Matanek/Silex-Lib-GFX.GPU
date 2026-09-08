@@ -76,7 +76,15 @@ Pour une sortie multisamplée, `CommandBuffer.render_resolved(...)` enregistre
 une passe vers une texture couleur multisamplée puis la résout dans la surface
 active. `Device.reset_command_stats()` ouvre une période de mesure et
 `Device.command_stats()` retourne un instantané immuable
-`GPU.CommandStatistics`.
+`GPU.CommandStatistics`. Cet instantané compte notamment les uploads,
+downloads, passes compute et octets d'uniformes ; une couche spécialisée peut
+ainsi prouver qu'une chaîne reste sur GPU jusqu'à son readback explicite.
+
+`CommandBuffer.compute_uniform(slot, value)` accepte directement un scalaire
+`float32` en plus de la vue d'octets générale. Les devices, ressources,
+pipelines, commandes, passes et fences sont des classes `noncopyable` : une
+affectation ordinaire partage leur identité, tandis que `copy` est refusé afin
+de ne jamais dupliquer un handle natif et son nettoyage.
 
 ## Choisir l’intégration Application ou directe
 
