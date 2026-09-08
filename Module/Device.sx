@@ -120,7 +120,7 @@ package struct CommandStats {
 
 }
 
-public noncopyable class Device {
+public nocopy class Device {
     private let handle:uint
     private var current_command_stats:CommandStats
     private var current_primitive:Types.Primitive
@@ -284,7 +284,7 @@ public noncopyable class Device {
     module func native_handle() uint { return self.handle }
 }
 
-public noncopyable class Surface {
+public nocopy class Surface {
     private let device_handle:uint
     private let window_handle:uint
     private var device_owner:Device? = null

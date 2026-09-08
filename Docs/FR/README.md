@@ -82,7 +82,7 @@ ainsi prouver qu'une chaîne reste sur GPU jusqu'à son readback explicite.
 
 `CommandBuffer.compute_uniform(slot, value)` accepte directement un scalaire
 `float32` en plus de la vue d'octets générale. Les devices, ressources,
-pipelines, commandes, passes et fences sont des classes `noncopyable` : une
+pipelines, commandes, passes et fences sont des classes `nocopy` : une
 affectation ordinaire partage leur identité, tandis que `copy` est refusé afin
 de ne jamais dupliquer un handle natif et son nettoyage.
 

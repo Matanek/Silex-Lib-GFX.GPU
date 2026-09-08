@@ -1,7 +1,7 @@
 use Interop.C
 use Interop.Boundary
 
-noncopyable class Properties {
+nocopy class Properties {
     private let handle:uint32
 
     init() {

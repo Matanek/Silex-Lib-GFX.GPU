@@ -85,7 +85,7 @@ public struct BlitRegion {
     var height:int = 1
 }
 
-public noncopyable class Fence {
+public nocopy class Fence {
     private let device_handle:uint
     private var handle:uint
     private var device_owner:Device? = null
@@ -123,7 +123,7 @@ public noncopyable class Fence {
     module func owner_handle() uint { return self.device_handle }
 }
 
-public noncopyable class CommandBuffer {
+public nocopy class CommandBuffer {
     private let device_handle:uint
     private var device_owner:Device? = null
     private var handle:uint
@@ -474,7 +474,7 @@ public noncopyable class CommandBuffer {
     private func require_available(action:str) { self.require_recording(action); if self.pass_active { panic("GFX.GPU cannot " + action + " while a pass is active") } }
 }
 
-public noncopyable class RenderPass {
+public nocopy class RenderPass {
     private var commands:CommandBuffer? = null
     private var handle:uint
     private let device_handle:uint
@@ -752,7 +752,7 @@ public noncopyable class RenderPass {
     }
 }
 
-public noncopyable class CopyPass {
+public nocopy class CopyPass {
     private var commands:CommandBuffer? = null
     private var handle:uint
     private let device_handle:uint
@@ -837,7 +837,7 @@ public noncopyable class CopyPass {
     }
 }
 
-public noncopyable class ComputePass {
+public nocopy class ComputePass {
     private var commands:CommandBuffer? = null
     private var handle:uint
     private let device_handle:uint

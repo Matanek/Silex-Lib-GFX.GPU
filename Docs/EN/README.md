@@ -80,7 +80,7 @@ readback.
 
 `CommandBuffer.compute_uniform(slot, value)` directly accepts a `float32`
 scalar in addition to the general byte view. Devices, resources, pipelines,
-commands, passes, and fences are `noncopyable` classes: ordinary assignment
+commands, passes, and fences are `nocopy` classes: ordinary assignment
 shares their identity, while `copy` is rejected so a native handle and its
 cleanup are never duplicated.
 
