@@ -12,7 +12,7 @@ remain private.
 silex install GFX.GPU
 ```
 
-GFX.GPU requires Silex 0.43.0 or newer.
+GFX.GPU requires Silex 0.44.0 or newer.
 
 ## Create a device and resource
 

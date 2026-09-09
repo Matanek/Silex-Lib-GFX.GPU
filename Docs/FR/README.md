@@ -12,7 +12,7 @@ natives restent privés.
 silex install GFX.GPU
 ```
 
-GFX.GPU demande Silex 0.43.0 ou une version plus récente.
+GFX.GPU demande Silex 0.44.0 ou une version plus récente.
 
 ## Créer un device et une ressource
 
