@@ -127,6 +127,18 @@ cleanup are never duplicated.
 
 ## Choose Application or direct integration
 
+To present an image rendered into a persistent texture,
+`commands.present(texture, surface)` records its blit to the window. The texture
+must be a resolved, single-layer 2D texture with `sampled` usage; submit the
+commands afterwards. `try commands.present(...)` returns `false` when the surface
+is unavailable and preserves acquisition errors. Acquisition pacing remains the
+same as ordinary presentation. `RenderPass.size()` also reports the physical
+dimensions of texture targets at the selected mip level.
+
+Use `try device.texture(settings)` and `try commands.submit()` to handle native
+allocation and submission errors. Programming errors (inconsistent texture
+settings, an active pass or a mismatched device) retain ordinary GPU validation.
+
 `GPU.Plugin` installs a surface and the presentation lifecycle into
 `GFX.Application`. It also installs `Window.Plugin` with its defaults when the
 application has not provided a configured window. Either plugin may be added

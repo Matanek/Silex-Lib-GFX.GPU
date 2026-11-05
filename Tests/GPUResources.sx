@@ -252,6 +252,8 @@ test "render and blit between offscreen textures" {
         texture:source,
         clear:Color.indigo_900()
     ))
+    assert(pass.size().width == 16 as uint32)
+    assert(pass.size().height == 16 as uint32)
     pass.finish()
     commands.blit(
         GPU.BlitRegion(texture:source, width:16, height:16),
@@ -261,6 +263,21 @@ test "render and blit between offscreen textures" {
     let statistics = device.command_stats()
     assert(statistics.render_passes == 1)
     assert(statistics.draw_calls == 0)
+    device.wait_until_idle()
+}
+
+test "report the physical dimensions of a render target mip" {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    var texture = device.texture(GPU.TextureSettings(
+        format:GPU.TextureFormat.rgba8_unorm, width:16, height:8, mip_levels:3,
+        usage:GPU.TextureUsage.as_color_target()
+    ))
+    var commands = device.commands()
+    var pass = commands.render(GPU.ColorTarget(texture:texture, mip_level:2))
+    assert(pass.size().width == 4 as uint32)
+    assert(pass.size().height == 2 as uint32)
+    pass.finish()
+    commands.submit()
     device.wait_until_idle()
 }
 

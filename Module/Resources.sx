@@ -105,7 +105,14 @@ public nocopy class Texture {
     private var device_owner:Device? = null
     private var current_settings:TextureSettings? = null
 
-    module init(device:Device, settings:TextureSettings) {
+    module init(device:Device, settings:TextureSettings, handle:uint) {
+        self.device_handle = device.native_handle()
+        self.handle = handle
+        self.device_owner = device
+        self.current_settings = settings
+    }
+
+    module static func create(device:Device, settings:TextureSettings) Result<Texture, str> {
         validate_texture(settings)
         var properties = Properties()
         if let name = settings.name { properties.text("SDL.gpu.texture.create.name", name) }
@@ -131,11 +138,10 @@ public nocopy class Texture {
         let handle = C.address_bits(sdl_create_gpu_texture(
             C.pointer_bits(device.native_handle()), C.pointer_bits(address)
         ))
-        if handle == 0 as uint { panic("GFX.GPU could not create a texture: " + gpu_error()) }
-        self.device_handle = device.native_handle()
-        self.handle = handle
-        self.device_owner = device
-        self.current_settings = settings
+        if handle == 0 as uint {
+            return Result<Texture, str>.failure("GFX.GPU could not create a texture: " + gpu_error())
+        }
+        return Result<Texture, str>.success(Texture(device, settings, handle))
     }
 
     drop {
@@ -422,7 +428,7 @@ public nocopy class TransferBuffer {
 
 extend Device {
     func buffer(settings:BufferSettings) Buffer { return Buffer(self, settings) }
-    func texture(settings:TextureSettings) Texture { return Texture(self, settings) }
+    func texture(settings:TextureSettings) Result<Texture, str> { return (try Texture.create(self, settings)) }
     func sampler(settings:SamplerSettings = SamplerSettings()) Sampler { return Sampler(self, settings) }
     func transfer_buffer(settings:TransferBufferSettings) TransferBuffer { return TransferBuffer(self, settings) }
     func upload_buffer(size:int, name:str? = null) TransferBuffer {

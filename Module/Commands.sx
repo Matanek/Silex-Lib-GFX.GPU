@@ -278,7 +278,27 @@ public nocopy class CommandBuffer {
         if handle == 0 as uint { panic("GFX.GPU could not begin a render pass: " + gpu_error()) }
         self.pass_active = true
         self.record_render_pass()
-        return RenderPass(self, handle, 0, 0)
+        var width = 0
+        var height = 0
+        var mip = 0
+        if target.count() > 0 {
+            var texture = required_texture(target[0].texture)
+            width = texture.width()
+            height = texture.height()
+            mip = target[0].mip_level
+        } elif let depth = options {
+            if let texture = depth.texture {
+                width = texture.width()
+                height = texture.height()
+                mip = depth.mip_level
+            }
+        }
+        while mip > 0 && (width > 1 || height > 1) {
+            if width > 1 { width /= 2 }
+            if height > 1 { height /= 2 }
+            mip--
+        }
+        return RenderPass(self, handle, width as uint32, height as uint32)
     }
 
     func copy() CopyPass {
@@ -382,12 +402,48 @@ public nocopy class CommandBuffer {
         sdl_blit_gpu_texture(C.pointer_bits(self.handle), C.pointer_bits(address))
     }
 
-    func submit() {
+    // Present a persistent resolved image without exposing a swapchain handle.
+    // Submission still belongs to this command buffer's caller.
+    func present(source:@Texture, surface:@Surface) Result<bool, str> {
+        self.require_available("present a texture")
+        self.require_owner(surface.owner_handle())
+        self.require_owner(source.owner_handle())
+        if source.type() != Types.TextureType.texture_2d || source.layers_or_depth() != 1 ||
+            source.samples() != Types.Samples.one || !source.usage().sampled {
+            return Result<bool, str>.failure("GPU presentation requires a resolved single-layer sampled 2D texture")
+        }
+        var texture:uint = 0
+        var width:uint32 = 0
+        var height:uint32 = 0
+        if sdl_wait_and_acquire_gpu_swapchain_texture(
+            C.pointer_bits(self.handle), C.pointer_bits(surface.native_window()),
+            C.mutable_pointer(texture), C.mutable_pointer(width), C.mutable_pointer(height)
+        ) == 0 {
+            return Result<bool, str>.failure("could not acquire the presentation image: " + gpu_error())
+        }
+        if texture == 0 as uint { return Result<bool, str>.success(false) }
+        var info:uint[12]
+        let address = C.address_bits(C.mutable_pointer(info))
+        let stored_source = C.store<uint>(address, 0 as uint, source.native_handle())
+        let stored_source_width = C.store<uint32>(address, 24 as uint, source.width() as uint32)
+        let stored_source_height = C.store<uint32>(address, 28 as uint, source.height() as uint32)
+        let stored_texture = C.store<uint>(address, 32 as uint, texture)
+        let stored_width = C.store<uint32>(address, 56 as uint, width)
+        let stored_height = C.store<uint32>(address, 60 as uint, height)
+        let stored_load = C.store<int32>(address, 64 as uint, Types.Load.discard.raw_value as int32)
+        let stored_filter = C.store<int32>(address, 88 as uint, Types.Filter.nearest.raw_value as int32)
+        sdl_blit_gpu_texture(C.pointer_bits(self.handle), C.pointer_bits(address))
+        return Result<bool, str>.success(true)
+    }
+
+    func submit() Result<void, str> {
         self.require_available("submit commands")
         let recorded = self.handle
         self.handle = 0 as uint
-        require_gpu_action(sdl_submit_gpu_command_buffer(C.pointer_bits(recorded)) != 0, "submit commands")
+        let submitted = sdl_submit_gpu_command_buffer(C.pointer_bits(recorded)) != 0
         self.release_scratch()
+        if !submitted { return Result<void, str>.failure("could not submit GPU commands: " + gpu_error()) }
+        return Result<void, str>.success()
     }
 
     func submit_and_track() Fence {

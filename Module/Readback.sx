@@ -27,6 +27,7 @@ public nocopy class Readback {
         self.row_bytes = row_bytes
         self.bgra = source.format() == Types.TextureFormat.bgra8_unorm ||
             source.format() == Types.TextureFormat.bgra8_srgb
+        if var owner = self.device { owner.record_download() }
     }
 
     func width() int { return self.image_width }
@@ -166,7 +167,6 @@ extend Device {
             release_transfer(C.pointer_bits(self.native_handle()), C.pointer_bits(transfer))
             return Result<Readback, str>.failure(error)
         }
-        self.record_download()
         return Result<Readback, str>.success(Readback(self, texture, transfer, fence, pitch))
     }
 }

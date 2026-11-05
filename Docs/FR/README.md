@@ -130,6 +130,19 @@ de ne jamais dupliquer un handle natif et son nettoyage.
 
 ## Choisir l’intégration Application ou directe
 
+Pour présenter une image rendue dans une texture persistante,
+`commands.present(texture, surface)` enregistre son blit vers la fenêtre.
+La texture doit être 2D, mono-couche, résolue et déclarée `sampled` ; soumettre
+ensuite les commandes. `try commands.present(...)` rend `false` si la surface
+est indisponible et conserve les erreurs d'acquisition. La cadence d'acquisition
+reste celle de la présentation ordinaire. `RenderPass.size()` indique aussi
+les dimensions physiques d'une cible texture, au niveau de mip sélectionné.
+
+`try device.texture(settings)` et `try commands.submit()` permettent de traiter
+les erreurs natives d'allocation et de soumission. Les erreurs de programmation
+(paramètres de texture incohérents, passe active ou mauvais device) restent
+soumises aux validations ordinaires du GPU.
+
 `GPU.Plugin` installe une surface et le cycle de présentation dans
 `GFX.Application`. Il installe aussi `Window.Plugin` avec ses valeurs par
 défaut si l’application n’a pas fourni de fenêtre configurée. L’ordre d’ajout
