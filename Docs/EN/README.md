@@ -50,6 +50,47 @@ intermediate byte array. Writes require an upload buffer and reads require a
 download buffer. For reads, `count:-1` means “through the last complete
 element”; any trailing bytes shorter than one element are ignored.
 
+## Read pixels from a texture
+
+After submitting a texture render or upload, `device.read_texture(texture)`
+submits a deferred GPU read. The `GPU.Readback` ticket retains the device,
+source and transfer. Submission does not wait for GPU completion. In an existing
+loop, this fragment requests a read, then collects it in a later iteration
+where `is_ready()` returns `true`:
+
+```sx
+var readback = device.read_texture(texture)
+// Continue rendering and handling input before collecting the result.
+if readback.is_ready() {
+    let pixels = readback.read()
+    assert(pixels.count() == readback.width() * readback.height() * 4)
+}
+```
+
+The owned bytes are RGBA8, left to right and top to bottom. Supported formats
+are `rgba8_unorm`, `bgra8_unorm`, `rgba8_srgb` and `bgra8_srgb`: BGRA is reordered,
+sRGB bytes stay encoded and alpha is preserved. The source must be a single-layer,
+single-sample 2D texture; resolve MSAA first. Swapchain images are not persistent
+textures readable through this API. This primitive does not yet capture the final
+Application render.
+
+Use `try device.read_texture(texture)` and `try readback.read()` to handle errors.
+An early read fails without consuming the transfer. A successful read consumes
+it; its owned bytes survive subsequent frames. `cancel()` or destruction abandon
+the read without waiting for its fence; SDL keeps native allocations until their
+GPU users finish. Destroying the last device can still wait for outstanding work.
+
+`maximum_bytes` bounds transfer storage, including rows aligned to 256 bytes:
+64 MiB by default, from 1 to 256 MiB at most. Each ticket owns its transfer;
+the caller bounds their count. Mapping, CPU copying and channel reordering run
+on the caller's thread during `read()`, after the fence is ready. Their cost is
+proportional to the pixel count; this is not a promise of free CPU readback.
+Use a ticket from one thread at a time and submit device writes and reads in
+the intended order.
+
+The [executable consumer](../../Tests/Consumer/Tests/Readback.sx) checks colors,
+orientation, retained results and cancellation.
+
 ## Provide shader programs
 
 A pipeline can receive HLSL from a file or source string:

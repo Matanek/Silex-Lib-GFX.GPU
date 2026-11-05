@@ -52,6 +52,48 @@ lecture un buffer de download. Pour une lecture, `count:-1` signifie « jusqu’
 dernier élément entier disponible » ; un reliquat plus court qu’un élément est
 ignoré.
 
+## Récupérer les pixels d’une texture
+
+Après soumission du rendu ou de l’upload d’une texture, `device.read_texture(texture)`
+programme une lecture GPU différée. Le ticket `GPU.Readback` conserve le device,
+la source et le transfert. Il ne bloque pas en attendant le GPU. Dans une boucle
+existante, ce fragment demande la lecture, puis collecte le résultat dans une
+itération ultérieure où `is_ready()` vaut `true` :
+
+```sx
+var readback = device.read_texture(texture)
+// Continue rendering and handling input before collecting the result.
+if readback.is_ready() {
+    let pixels = readback.read()
+    assert(pixels.count() == readback.width() * readback.height() * 4)
+}
+```
+
+Les octets possédés sont RGBA8, de gauche à droite et de haut en bas. Les formats
+`rgba8_unorm`, `bgra8_unorm`, `rgba8_srgb` et `bgra8_srgb` sont acceptés ; BGRA
+est réordonné, les octets sRGB restent encodés et l’alpha reste inchangé.
+La source doit être une texture 2D mono-couche et mono-échantillon ; résoudre le
+MSAA au préalable. La swapchain n’est pas une texture persistante récupérable par
+cette API. Cette primitive ne capture pas encore le rendu final d’Application.
+
+`try device.read_texture(texture)` et `try readback.read()` permettent de traiter
+les erreurs. Une lecture prématurée échoue sans consommer le transfert. Une
+lecture réussie le consomme ; les octets restent valides après les frames suivantes.
+`cancel()` ou la destruction abandonnent la lecture sans attendre sa fence ;
+SDL conserve les allocations natives aussi longtemps que leurs utilisateurs GPU.
+La destruction du dernier device peut néanmoins attendre ses travaux restants.
+
+`maximum_bytes` borne le transfert, rangées alignées à 256 octets comprises :
+64 Mio par défaut, de 1 à 256 Mio au maximum. Chaque ticket possède son transfert ;
+l’appelant borne leur nombre. Mapping, copie CPU et réordonnancement se font lors
+de `read()` sur le thread appelant, une fois la fence prête. Cette opération a un
+coût proportionnel au nombre de pixels ; elle n’est pas une promesse de lecture
+CPU sans coût. Utiliser un ticket depuis un seul thread à la fois et soumettre
+les écritures et lectures du device dans l’ordre attendu.
+
+Le [consommateur exécutable](../../Tests/Consumer/Tests/Readback.sx) vérifie
+les couleurs, l’orientation, la conservation des résultats et l’annulation.
+
 ## Fournir les programmes de shaders
 
 Un pipeline peut recevoir du HLSL depuis un fichier ou depuis une chaîne :

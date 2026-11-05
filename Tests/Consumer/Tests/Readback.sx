@@ -1,0 +1,128 @@
+use GFX.GPU
+
+func upload(device:GPU.Device, texture:GPU.Texture, bytes:uint8[]) {
+    var buffer = device.upload_buffer(bytes.count())
+    buffer.write(@bytes[0:bytes.count()])
+    var commands = device.commands()
+    var pass = commands.copy()
+    pass.upload(buffer, GPU.TextureRegion(texture:texture, width:3, height:2), 3, 2)
+    pass.finish()
+    commands.submit()
+}
+
+func assert_pixels(actual:uint8[], expected:uint8[]) {
+    assert(actual.count() == expected.count())
+    var index = 0
+    while index < expected.count() {
+        assert(actual[index] == expected[index])
+        index++
+    }
+}
+
+func verify_format(device:GPU.Device, format:GPU.TextureFormat, bgra:bool) {
+    var texture = device.texture(GPU.TextureSettings(
+        format:format, width:3, height:2, usage:GPU.TextureUsage.as_color_target()
+    ))
+    let expected:uint8[] = [255, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 0,
+        32, 64, 96, 192, 127, 128, 129, 254, 1, 2, 3, 4]
+    var source = expected
+    if bgra {
+        var index = 0
+        while index < source.count() {
+            let red = source[index]
+            source[index] = source[index + 2]
+            source[index + 2] = red
+            index += 4
+        }
+    }
+    upload(device, texture, source)
+    var first = device.read_texture(texture)
+    assert(first.width() == 3)
+    assert(first.height() == 2)
+    var replacement:uint8[] = []
+    var index = 0
+    while index < 24 { replacement.append(255 as uint8); index++ }
+    upload(device, texture, replacement)
+    var second = device.read_texture(texture)
+    var abandoned = device.read_texture(texture)
+    abandoned.cancel()
+    assert(!abandoned.is_ready())
+    match (try abandoned.read()) {
+        failure(error) => {}
+        success(value) => { panic("cancelled readback must fail") }
+    }
+    // Later GPU work proceeds before either result is collected. Waiting here
+    // belongs only to the test: Readback.read itself never waits.
+    var commands = device.commands()
+    var marker = commands.submit_and_track()
+    marker.wait()
+    assert(first.is_ready())
+    assert(second.is_ready())
+    let pixels = first.read()
+    let later = second.read()
+    assert_pixels(pixels, expected)
+    assert_pixels(later, replacement)
+    assert(!first.is_ready())
+    match (try first.read()) {
+        failure(error) => {}
+        success(value) => { panic("readback must be consumed once") }
+    }
+    // Owned bytes survive a subsequent transfer and source modification.
+    assert_pixels(pixels, expected)
+}
+
+func verify_readback() {
+    var device = GPU.Device(GPU.DeviceSettings(debug:true))
+    verify_format(device, GPU.TextureFormat.rgba8_unorm, false)
+    verify_format(device, GPU.TextureFormat.bgra8_unorm, true)
+    verify_format(device, GPU.TextureFormat.rgba8_srgb, false)
+    verify_format(device, GPU.TextureFormat.bgra8_srgb, true)
+    var texture = device.texture(GPU.TextureSettings(
+        format:GPU.TextureFormat.rgba8_unorm, width:3, height:2,
+        usage:GPU.TextureUsage.as_color_target()
+    ))
+    match (try device.read_texture(texture, maximum_bytes:511)) {
+        failure(error) => {}
+        success(value) => { panic("aligned transfer limit must be enforced") }
+    }
+    match (try device.read_texture(texture, maximum_bytes:0)) {
+        failure(error) => {}
+        success(value) => { panic("zero transfer limit must be rejected") }
+    }
+    var other = GPU.Device()
+    match (try other.read_texture(texture)) {
+        failure(error) => {}
+        success(value) => { panic("another device must be rejected") }
+    }
+    var depth = device.texture(GPU.TextureSettings(
+        format:GPU.TextureFormat.depth16, width:3, height:2,
+        usage:GPU.TextureUsage.as_depth_target()
+    ))
+    match (try device.read_texture(depth)) {
+        failure(error) => {}
+        success(value) => { panic("unsupported format must be rejected") }
+    }
+    match (try device.read_texture(texture, maximum_bytes:256 * 1024 * 1024 + 1)) {
+        failure(error) => {}
+        success(value) => { panic("global transfer limit must be enforced") }
+    }
+    if device.supports(GPU.TextureFormat.rgba8_unorm, GPU.Samples.four) {
+        var multisampled = device.texture(GPU.TextureSettings(
+            format:GPU.TextureFormat.rgba8_unorm, width:3, height:2,
+            usage:GPU.TextureUsage.as_color_target(), samples:GPU.Samples.four
+        ))
+        match (try device.read_texture(multisampled)) {
+            failure(error) => {}
+            success(value) => { panic("multisampling must be resolved before readback") }
+        }
+    }
+    var uncollected = device.read_texture(texture, maximum_bytes:512)
+    // Dropping a live readback is also legal; no explicit GPU wait is required.
+    print("GPU readback: RGBA/BGRA, sRGB, order, ownership, cancellation and limits passed")
+}
+
+test "collect owned RGBA8 pixels from a deferred GPU readback" {
+    verify_readback()
+}
+
+func main() { verify_readback() }

@@ -1,4 +1,5 @@
 use GFX.GPU.Commands
+public use GFX.GPU.Readback.Readback
 
 public use GFX.GPU.Types.ShaderFormat
 public use GFX.GPU.Types.ShaderStage

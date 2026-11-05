@@ -1,0 +1,185 @@
+use Interop.C
+use Interop.Boundary
+use GFX.GPU.Device
+use GFX.GPU.Device.gpu_error
+use GFX.GPU.Resources.Texture
+use GFX.GPU.Types
+
+// The transfer owns its source and device until collection or cancellation.
+// SDL defers released GPU storage until its submitted users have finished.
+public nocopy class Readback {
+    private var device:Device?
+    private var source:Texture?
+    private var transfer:uint
+    private var fence:uint
+    private let image_width:int
+    private let image_height:int
+    private let row_bytes:int
+    private let bgra:bool
+
+    module init(device:Device, source:Texture, transfer:uint, fence:uint, row_bytes:int) {
+        self.device = device
+        self.source = source
+        self.transfer = transfer
+        self.fence = fence
+        self.image_width = source.width()
+        self.image_height = source.height()
+        self.row_bytes = row_bytes
+        self.bgra = source.format() == Types.TextureFormat.bgra8_unorm ||
+            source.format() == Types.TextureFormat.bgra8_srgb
+    }
+
+    func width() int { return self.image_width }
+    func height() int { return self.image_height }
+
+    func is_ready() bool {
+        if self.fence == 0 as uint { return false }
+        if let device = self.device {
+            return query_fence(C.pointer_bits(device.native_handle()), C.pointer_bits(self.fence)) != 0
+        }
+        return false
+    }
+
+    // Never waits. A successful read consumes the transfer and returns owned,
+    // top-left RGBA8 bytes. sRGB bytes are kept encoded; alpha is preserved.
+    func read() Result<uint8[], str> {
+        if self.fence == 0 as uint {
+            return Result<uint8[], str>.failure("GPU readback was already consumed or cancelled")
+        }
+        if !self.is_ready() {
+            return Result<uint8[], str>.failure("GPU readback is not ready")
+        }
+        if let device = self.device {
+            let handle = device.native_handle()
+            let address = C.address_bits(map_transfer(C.pointer_bits(handle), C.pointer_bits(self.transfer), 0))
+            if address == 0 as uint {
+                let error = "could not map GPU readback: " + gpu_error()
+                self.cancel()
+                return Result<uint8[], str>.failure(error)
+            }
+            var pixels:uint8[] = []
+            var y = 0
+            while y < self.image_height {
+                var x = 0
+                while x < self.image_width {
+                    let offset = (y * self.row_bytes + x * 4) as uint
+                    let first = C.load<uint8>(address, offset)
+                    let green = C.load<uint8>(address, offset + 1 as uint)
+                    let third = C.load<uint8>(address, offset + 2 as uint)
+                    let alpha = C.load<uint8>(address, offset + 3 as uint)
+                    if self.bgra { pixels.append(third) } else { pixels.append(first) }
+                    pixels.append(green)
+                    if self.bgra { pixels.append(first) } else { pixels.append(third) }
+                    pixels.append(alpha)
+                    x++
+                }
+                y++
+            }
+            unmap_transfer(C.pointer_bits(handle), C.pointer_bits(self.transfer))
+            self.cancel()
+            return Result<uint8[], str>.success(pixels)
+        }
+        return Result<uint8[], str>.failure("GPU readback has no device")
+    }
+
+    func cancel() {
+        if let device = self.device {
+            if self.fence != 0 as uint {
+                release_fence(C.pointer_bits(device.native_handle()), C.pointer_bits(self.fence))
+            }
+            if self.transfer != 0 as uint {
+                release_transfer(C.pointer_bits(device.native_handle()), C.pointer_bits(self.transfer))
+            }
+        }
+        self.fence = 0 as uint
+        self.transfer = 0 as uint
+        self.source = null
+        self.device = null
+    }
+
+    drop { self.cancel() }
+}
+
+extend Device {
+    public func read_texture(texture:Texture, maximum_bytes:int = 64 * 1024 * 1024) Result<Readback, str> {
+        if texture.owner_handle() != self.native_handle() {
+            return Result<Readback, str>.failure("GPU readback texture belongs to another device")
+        }
+        if texture.type() != Types.TextureType.texture_2d || texture.layers_or_depth() != 1 ||
+            texture.samples() != Types.Samples.one {
+            return Result<Readback, str>.failure("GPU readback requires a resolved, single-layer 2D texture")
+        }
+        let format = texture.format()
+        if format != Types.TextureFormat.rgba8_unorm && format != Types.TextureFormat.bgra8_unorm &&
+            format != Types.TextureFormat.rgba8_srgb && format != Types.TextureFormat.bgra8_srgb {
+            return Result<Readback, str>.failure("GPU readback supports only RGBA8 and BGRA8 textures")
+        }
+        // Align rows for D3D12 without depending on an implicit SDL staging copy.
+        let pitch = ((texture.width() + 63) / 64) * 256
+        if maximum_bytes <= 0 || maximum_bytes > 256 * 1024 * 1024 ||
+            pitch > maximum_bytes / texture.height() {
+            return Result<Readback, str>.failure("GPU readback exceeds its transfer byte limit")
+        }
+        // Native structs need explicit byte layout; Silex array element storage
+        // is private and is not the packed layout of three C uint32 fields.
+        var settings:uint[2]
+        let settings_address = C.address_bits(C.mutable_pointer(settings))
+        let stored_usage = C.store<uint32>(settings_address, 0 as uint,
+            Types.TransferDirection.download.raw_value as uint32)
+        let stored_size = C.store<uint32>(settings_address, 4 as uint,
+            (pitch * texture.height()) as uint32)
+        let stored_properties = C.store<uint32>(settings_address, 8 as uint, 0 as uint32)
+        let transfer = C.address_bits(create_transfer(C.pointer_bits(self.native_handle()),
+            C.pointer_bits(settings_address)))
+        if transfer == 0 as uint {
+            return Result<Readback, str>.failure("could not create GPU readback: " + gpu_error())
+        }
+        let commands = C.address_bits(acquire_commands(C.pointer_bits(self.native_handle())))
+        if commands == 0 as uint {
+            let error = "could not acquire GPU readback commands: " + gpu_error()
+            release_transfer(C.pointer_bits(self.native_handle()), C.pointer_bits(transfer))
+            return Result<Readback, str>.failure(error)
+        }
+        let pass = C.address_bits(begin_copy(C.pointer_bits(commands)))
+        if pass == 0 as uint {
+            let error = "could not begin GPU readback: " + gpu_error()
+            cancel_commands(C.pointer_bits(commands))
+            release_transfer(C.pointer_bits(self.native_handle()), C.pointer_bits(transfer))
+            return Result<Readback, str>.failure(error)
+        }
+        var region:uint[5]
+        let region_address = C.address_bits(C.mutable_pointer(region))
+        let stored_texture = C.store<uint>(region_address, 0 as uint, texture.native_handle())
+        let stored_width = C.store<uint32>(region_address, 28 as uint, texture.width() as uint32)
+        let stored_height = C.store<uint32>(region_address, 32 as uint, texture.height() as uint32)
+        let stored_depth = C.store<uint32>(region_address, 36 as uint, 1 as uint32)
+        var destination:uint[3]
+        let destination_address = C.address_bits(C.mutable_pointer(destination))
+        let stored_transfer = C.store<uint>(destination_address, 0 as uint, transfer)
+        let stored_pitch = C.store<uint32>(destination_address, 12 as uint, (pitch / 4) as uint32)
+        let stored_rows = C.store<uint32>(destination_address, 16 as uint, texture.height() as uint32)
+        download_texture(C.pointer_bits(pass), C.pointer_bits(region_address), C.pointer_bits(destination_address))
+        end_copy(C.pointer_bits(pass))
+        let fence = C.address_bits(submit_commands(C.pointer_bits(commands)))
+        if fence == 0 as uint {
+            let error = "could not submit GPU readback: " + gpu_error()
+            release_transfer(C.pointer_bits(self.native_handle()), C.pointer_bits(transfer))
+            return Result<Readback, str>.failure(error)
+        }
+        self.record_download()
+        return Result<Readback, str>.success(Readback(self, texture, transfer, fence, pitch))
+    }
+}
+
+let create_transfer = C.function<func(C.Pointer<uint8>, C.Pointer<uint8>) C.Pointer<uint8> >(library:Boundary.SDL3, name:"SDL_CreateGPUTransferBuffer")
+let release_transfer = C.function<func(C.Pointer<uint8>, C.Pointer<uint8>) void>(library:Boundary.SDL3, name:"SDL_ReleaseGPUTransferBuffer")
+let acquire_commands = C.function<func(C.Pointer<uint8>) C.Pointer<uint8> >(library:Boundary.SDL3, name:"SDL_AcquireGPUCommandBuffer")
+let cancel_commands = C.function<func(C.Pointer<uint8>) int32>(library:Boundary.SDL3, name:"SDL_CancelGPUCommandBuffer")
+let begin_copy = C.function<func(C.Pointer<uint8>) C.Pointer<uint8> >(library:Boundary.SDL3, name:"SDL_BeginGPUCopyPass")
+let end_copy = C.function<func(C.Pointer<uint8>) void>(library:Boundary.SDL3, name:"SDL_EndGPUCopyPass")
+let download_texture = C.function<func(C.Pointer<uint8>, C.Pointer<uint8>, C.Pointer<uint8>) void>(library:Boundary.SDL3, name:"SDL_DownloadFromGPUTexture")
+let submit_commands = C.function<func(C.Pointer<uint8>) C.Pointer<uint8> >(library:Boundary.SDL3, name:"SDL_SubmitGPUCommandBufferAndAcquireFence")
+let query_fence = C.function<func(C.Pointer<uint8>, C.Pointer<uint8>) int32>(library:Boundary.SDL3, name:"SDL_QueryGPUFence")
+let release_fence = C.function<func(C.Pointer<uint8>, C.Pointer<uint8>) void>(library:Boundary.SDL3, name:"SDL_ReleaseGPUFence")
+let map_transfer = C.function<func(C.Pointer<uint8>, C.Pointer<uint8>, int32) C.Pointer<uint8> >(library:Boundary.SDL3, name:"SDL_MapGPUTransferBuffer")
+let unmap_transfer = C.function<func(C.Pointer<uint8>, C.Pointer<uint8>) void>(library:Boundary.SDL3, name:"SDL_UnmapGPUTransferBuffer")
