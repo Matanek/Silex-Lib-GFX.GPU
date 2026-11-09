@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.5.0] - 2026-11-08
+## [0.5.0] - 2026-11-09
 
 - `CommandBuffer.present` presents a resolved 2D texture without exposing the
   swapchain. Texture render passes now report their physical size, including

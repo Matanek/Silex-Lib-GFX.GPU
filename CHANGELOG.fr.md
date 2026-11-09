@@ -1,6 +1,6 @@
 # Historique des changements
 
-## [0.5.0] - 2026-11-08
+## [0.5.0] - 2026-11-09
 
 - `CommandBuffer.present` présente une texture 2D résolue sans exposer la swapchain.
   Les passes vers une texture renseignent désormais leur taille physique, mip
